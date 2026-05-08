@@ -1,0 +1,34 @@
+name: Deploy Docker image on tagging.
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set env
+        run: |
+          OWNER=$(echo ${{ github.repository_owner }})
+          echo "RELEASE_OWNER=$OWNER" >> $GITHUB_ENV
+          IMAGE=markdown-docs
+          echo "RELEASE_IMAGE=$IMAGE" >> $GITHUB_ENV
+          VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
+          echo "RELEASE_VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Build
+        run: |
+          docker build -t ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:${{ env.RELEASE_VERSION }} .
+      - name: Login
+        run: |
+          echo ${{ secrets.GHCR_IO_SECRET_KEY }} | docker login ghcr.io -u ${{ env.RELEASE_OWNER }} --password-stdin
+      - name: Push by tag name
+        run: |
+          docker push ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:${{ env.RELEASE_VERSION }}
+      - name: Push by latest
+        run: |
+          docker image tag ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:${{ env.RELEASE_VERSION }} ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:latest
+          docker push ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:latest
