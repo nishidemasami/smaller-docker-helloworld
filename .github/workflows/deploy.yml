@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
       - uses: docker/setup-buildx-action@v3
       - name: Set env
         run: |
@@ -27,4 +24,4 @@ jobs:
         run: |
           echo ${{ secrets.GHCR_IO_SECRET_KEY }} | docker login ghcr.io -u ${{ env.RELEASE_OWNER }} --password-stdin
       - name: Build
-        run: docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:${{ env.RELEASE_VERSION }} -t ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:latest --push .
+        run: docker buildx build --platform linux/amd64 --load -t ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:${{ env.RELEASE_VERSION }} -t ghcr.io/${{ env.RELEASE_OWNER }}/${{ env.RELEASE_IMAGE }}:latest --push .
