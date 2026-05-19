@@ -5,20 +5,78 @@
 ########################################
 FROM debian:13-slim AS builder
 
-LABEL version="1.0"
+LABEL version="1.1"
 LABEL org.opencontainers.image.source=https://github.com/nishidemasami/smaller-docker-helloworld
 LABEL org.opencontainers.image.description="very small Dockerfile for hello world"
 
 LABEL maintainer="NISHIDE, Masami <nishidemasami@gmail.com>"
 
+ARG TARGETARCH
 
-RUN apt-get update && \
-    apt-get install -y nasm
+RUN apt-get update
+
+RUN case "$TARGETARCH" in \
+    amd64) apt-get install -y nasm;; \
+    arm64) apt-get install -y binutils-aarch64-linux-gnu;; \
+    esac
 
 WORKDIR /src
 
-RUN <<EOF
-cat <<- '_ASM_' > hello_amd64.nasm
+RUN cat > hello_arm64.s <<'EOF'
+.global _start
+
+.section .text
+_start:
+
+// ---- ELF Header (64 bytes) ----
+.byte 0x7f,0x45,0x4c,0x46   // ELF
+.byte 2,1,1,0               // 64bit, little endian
+.zero 8
+
+.hword 2                    // ET_EXEC
+.hword 0xb7                 // EM_AARCH64
+.word 1                     // version
+
+.quad 0x400078             // entry point
+.quad 0x40                 // program header offset
+.quad 0                    // section header offset
+.word 0                    // flags
+
+.hword 64                  // ehsize
+.hword 56                  // phentsize
+.hword 1                   // phnum
+.hword 0,0,0               // section headers unused
+
+// ---- Program Header (56 bytes) ----
+.word 1                    // PT_LOAD
+.word 5                    // PF_R | PF_X
+.quad 0                    // offset
+.quad 0x400000             // vaddr
+.quad 0                    // paddr
+.quad file_end - _start    // filesz
+.quad file_end - _start    // memsz
+.quad 0x1000               // align
+
+// ---- code ----
+code_start:
+
+    mov x0, #1
+    adr x1, msg
+    mov x2, #13
+    mov x8, #64
+    svc #0
+
+    mov x0, #0
+    mov x8, #93
+    svc #0
+
+msg:
+    .ascii "Hello, World!\n"
+
+file_end:
+EOF
+
+RUN cat > hello_amd64.nasm <<'EOF'
 ; hello_amd64.nasm - minimal ELF64 Linux "Hello, World!\n"
 ; assemble: nasm -f bin hello_amd64.nasm -o hello
 ; run:      chmod +x hello && ./hello
@@ -82,23 +140,20 @@ msg:
 msglen  equ $ - msg
 
 filesize equ $ - $$
-_ASM_
 EOF
 
+RUN case "$TARGETARCH" in \
+    amd64) nasm -f bin -o hello hello_amd64.nasm;; \
+    arm64) aarch64-linux-gnu-as -o hello_arm64.o hello_arm64.s && aarch64-linux-gnu-objcopy -O binary hello_arm64.o hello;; \
+    esac
 
-RUN nasm -f bin -o hello_amd64 hello_amd64.nasm
-RUN chmod +x hello_amd64
+RUN chmod +x hello
 
 ########################################
 # Runtime stage
 ########################################
 FROM scratch
 
-COPY --from=builder /src/hello_amd64 /o
+COPY --from=builder /src/hello /o
 
 ENTRYPOINT ["/o"]
-
-########################################
-# How to build
-# $ docker buildx build --platform linux/amd64 -t helloworld-nasm-amd64 -f helloworld-dockerfile --load .
-########################################
