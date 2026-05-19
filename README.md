@@ -4,7 +4,7 @@ very small helloworld docker container.
 You can pull container from `ghcr.io/nishidemasami/smaller-docker-helloworld:latest`.
 
 ## Enviroment
-ELF64
+linux/arm64,linux/amd64
 
 ## Install from the command line
 ```

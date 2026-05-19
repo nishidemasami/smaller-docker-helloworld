@@ -5,7 +5,7 @@
 ########################################
 FROM debian:13-slim AS builder
 
-LABEL version="1.1"
+LABEL version="1.2"
 LABEL org.opencontainers.image.source=https://github.com/nishidemasami/smaller-docker-helloworld
 LABEL org.opencontainers.image.description="very small Dockerfile for hello world"
 
